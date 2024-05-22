@@ -22,7 +22,7 @@ type (
 	}
 
 	// M alias for abbreviation
-	M = map[string]interface{}
+	M = map[string]any
 
 	// Builder to simplify error constructors
 	Builder struct {
@@ -36,12 +36,12 @@ type (
 // Attr attribute for error logging
 func Attr(err error) slog.Attr {
 	if e := Get(err); len(e.Frames) != 0 {
-		return slog.Any(err.Error(), e.Details())
+		return slog.Group(err.Error(), e.attrs()...)
 	}
 	return slog.String("error", err.Error())
 }
 
-func (e Error) Value(arg string) interface{} {
+func (e Error) Value(arg string) any {
 	for _, f := range e.Frames {
 		v, ok := f.Args[arg]
 		if ok {
@@ -61,13 +61,25 @@ func (e Error) Error() string {
 }
 
 // Details list of parent errors with arguments to log
-func (e Error) Details() []interface{} {
-	xs := make([]interface{}, 0, len(e.Frames))
+func (e Error) Details() []any {
+	xs := make([]any, 0, len(e.Frames))
 	for _, x := range e.Frames {
 		if len(x.Args) == 0 {
 			xs = append(xs, x.Loc)
 		} else {
 			xs = append(xs, M{x.Loc: x.Args})
+		}
+	}
+	return xs
+}
+
+func (e Error) attrs() []any {
+	xs := make([]any, 0, len(e.Frames))
+	for _, x := range e.Frames {
+		if len(x.Args) == 0 {
+			xs = append(xs, slog.String(x.Loc, ""))
+		} else {
+			xs = append(xs, slog.Any(x.Loc, x.Args))
 		}
 	}
 	return xs
@@ -106,7 +118,7 @@ func New(message string) error {
 
 // Errorf create an Error object with printf-like formatted text
 // The loc of the Errorf call is added to the additional error context
-func Errorf(format string, args ...interface{}) error {
+func Errorf(format string, args ...any) error {
 	return Skip(1).Errorf(format, args...)
 }
 
@@ -116,7 +128,7 @@ func Skip(skip int) Builder {
 }
 
 // Args Error constructor with structure arguments
-func Args(args ...interface{}) Builder {
+func Args(args ...any) Builder {
 	return Builder{}.Args(args...)
 }
 
@@ -126,7 +138,7 @@ func Prepend(s string) Builder {
 }
 
 // Prependf the Error constructor with a prefix in the text
-func Prependf(format string, args ...interface{}) Builder {
+func Prependf(format string, args ...any) Builder {
 	return Builder{}.Prependf(format, args...)
 }
 
@@ -136,7 +148,7 @@ func (o Builder) New(msg string) error {
 }
 
 // Errorf version of New with printf formatting
-func (o Builder) Errorf(format string, args ...interface{}) error {
+func (o Builder) Errorf(format string, args ...any) error {
 	return o.wrap(fmt.Errorf(format, args...))
 }
 
@@ -165,7 +177,7 @@ func (o Builder) Prepend(prepend string) Builder {
 }
 
 // Prependf version of Prepend with printf formatting
-func (o Builder) Prependf(format string, args ...interface{}) Builder {
+func (o Builder) Prependf(format string, args ...any) Builder {
 	return o.Prepend(fmt.Sprintf(format, args...))
 }
 
@@ -180,13 +192,13 @@ func (o Builder) Append(append string) Builder {
 }
 
 // Args structure arguments
-func (o Builder) Args(args ...interface{}) Builder {
+func (o Builder) Args(args ...any) Builder {
 	if o.args == nil {
 		o.args = M{}
 	}
 	for i := 0; i < len(args); i += 2 {
 		k := args[i]
-		var v interface{} = "?"
+		var v any = "?"
 		if i+1 < len(args) {
 			v = args[i+1]
 		}
