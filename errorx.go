@@ -37,9 +37,7 @@ type (
 // Attr attribute for error logging
 func Attr(err error) slog.Attr {
 	if e := Get(err); len(e.Frames) != 0 {
-		return slog.Group(err.Error(), pie.Map(e.Attrs(), func(a slog.Attr) any {
-			return a
-		})...)
+		return slog.Group(err.Error(), e.AttrsAny()...)
 	}
 	return slog.String("error", err.Error())
 }
@@ -74,6 +72,12 @@ func (e Error) Details() []any {
 		}
 	}
 	return xs
+}
+
+func (e Error) AttrsAny() []any {
+	return pie.Map(e.Attrs(), func(a slog.Attr) any {
+		return a
+	})
 }
 
 func (e Error) Attrs() []slog.Attr {
