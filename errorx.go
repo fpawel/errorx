@@ -3,6 +3,7 @@ package errorx
 import (
 	"errors"
 	"fmt"
+	"github.com/elliotchance/pie/v2"
 	"log/slog"
 	"path/filepath"
 	"runtime"
@@ -36,7 +37,9 @@ type (
 // Attr attribute for error logging
 func Attr(err error) slog.Attr {
 	if e := Get(err); len(e.Frames) != 0 {
-		return slog.Group(err.Error(), e.attrs()...)
+		return slog.Group(err.Error(), pie.Map(e.Attrs(), func(a slog.Attr) any {
+			return a
+		})...)
 	}
 	return slog.String("error", err.Error())
 }
@@ -73,8 +76,8 @@ func (e Error) Details() []any {
 	return xs
 }
 
-func (e Error) attrs() []any {
-	xs := make([]any, 0, len(e.Frames))
+func (e Error) Attrs() []slog.Attr {
+	xs := make([]slog.Attr, 0, len(e.Frames))
 	for _, x := range e.Frames {
 		if len(x.Args) == 0 {
 			xs = append(xs, slog.String(x.Loc, ""))
