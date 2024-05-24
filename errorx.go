@@ -16,6 +16,8 @@ type (
 		Err    error
 	}
 
+	Const string
+
 	// Frame additional information related to error
 	Frame struct {
 		Loc  string `json:"loc"`                          // Where the error was created in the code
@@ -33,6 +35,10 @@ type (
 		args    M      // Structural error arguments
 	}
 )
+
+func (s Const) Error() string {
+	return string(s)
+}
 
 // Attr attribute for error logging
 func Attr(err error) slog.Attr {
