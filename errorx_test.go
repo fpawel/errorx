@@ -20,7 +20,7 @@ func jsonify(v interface{}) string {
 }
 
 func jsonifyErr(err error) string {
-	return replaceSrc(jsonify(Get(err).Details()))
+	return replaceSrc(jsonify([]any{err.Error(), Get(err).Details()}))
 }
 
 func replaceSrc(s string) string {
@@ -28,7 +28,7 @@ func replaceSrc(s string) string {
 }
 
 func printErr(err error) {
-	b, _ := json.MarshalIndent(Get(err).Details(), "", "\t")
+	b, _ := json.MarshalIndent([]any{err.Error(), Get(err).Details()}, "", "\t")
 	s := string(b)
 	s = replaceSrc(s)
 	fmt.Printf("%s\n", s)
@@ -52,52 +52,57 @@ func TestWrap1(t *testing.T) {
 			}())
 	}()
 	assert.Equal(t, "prepend3: prepend2: prepend1: test error: append1: append2: append3", err.Error())
-	printErr(err)
 	assertErr(t, `[
-	{
-		"src.go:0.TestWrap1.func1.1.1": {
-			"key1": "val1"
+	"prepend3: prepend2: prepend1: test error: append1: append2: append3",
+	[
+		{
+			"src.go:0.TestWrap1.func1.1.1": {
+				"key1": "val1"
+			}
+		},
+		{
+			"src.go:0.TestWrap1.func1.1": {
+				"key2": "val2"
+			}
+		},
+		{
+			"src.go:0.TestWrap1.func1": {
+				"key3": "val3"
+			}
 		}
-	},
-	{
-		"src.go:0.TestWrap1.func1.1": {
-			"key2": "val2"
-		}
-	},
-	{
-		"src.go:0.TestWrap1.func1": {
-			"key3": "val3"
-		}
-	}
+	]
 ]`, err)
 	assert.True(t, errors.Is(err, errTest))
 	assert.True(t, errors.Is(Get(err), errTest))
 }
 
 func TestWrap2(t *testing.T) {
-	assertErr(t, `["src.go:0.TestWrap2"]`, New("some shit"))
+	assertErr(t, `["some shit",["src.go:0.TestWrap2"]]`, New("some shit"))
 }
 
 func TestWrap3(t *testing.T) {
 	err := Wrap(func3test())
-	assert.Equal(t, "prepend3: prepend2: prepend1: test error: append1: append2: append3", err.Error())
-	assertErr(t, `[
-	{
-		"src.go:0.func1test": {
-			"key1": "val1"
-		}
-	},
-	{
-		"src.go:0.func2test": {
-			"key2": "val2"
-		}
-	},
-	{
-		"src.go:0.func3test": {
-			"key3": "val3"
-		}
-	},
-	"src.go:0.TestWrap3"
+	assertErr(t,
+		`[
+	"prepend3: prepend2: prepend1: test error: append1: append2: append3",
+	[
+		{
+			"src.go:0.func1test": {
+				"key1": "val1"
+			}
+		},
+		{
+			"src.go:0.func2test": {
+				"key2": "val2"
+			}
+		},
+		{
+			"src.go:0.func3test": {
+				"key3": "val3"
+			}
+		},
+		"src.go:0.TestWrap3"
+	]
 ]`, err)
 	assert.True(t, errors.Is(err, errTest))
 }
@@ -115,14 +120,9 @@ func TestWrap4(t *testing.T) {
 
 func TestExternal(t *testing.T) {
 	err := Get(Args("external", "some external text").Wrap(errTest))
-
-	assertErr(t, `[
-	{
-		"src.go:0.TestExternal":{
-				"external": "some external text"
-		}
-	}
-]`, err)
+	assertErr(t,
+		`["test error",[{"src.go:0.TestExternal": {"external": "some external text"}}]]`,
+		err)
 	assert.True(t, errors.Is(err, errTest))
 	assert.Equal(t, "test error", err.Error())
 	assert.Equal(t, "some external text", err.Value("external"))
@@ -159,27 +159,44 @@ func TestPrepend(t *testing.T) {
 			}())
 	}()
 
-	assertErr(t, `[
-	{
-		"src.go:0.TestPrepend.func1.1.1": {
-			"key1": "val1"
-		}
-	},
-	{
-		"src.go:0.TestPrepend.func1.1": {
-			"key2": "val2"
-		}
-	},
-	{
-		"src.go:0.TestPrepend.func1": {
-			"key3": "val3"
-		}
-	}
+	assertErr(t, `
+[
+    "prepend3: prepend2: prepend1: test error: append1: append2: append3",
+    [
+        {
+            "src.go:0.TestPrepend.func1.1.1": {
+                "key1": "val1"
+            }
+        },
+        {
+            "src.go:0.TestPrepend.func1.1": {
+                "key2": "val2"
+            }
+        },
+        {
+            "src.go:0.TestPrepend.func1": {
+                "key3": "val3"
+            }
+        }
+    ]
 ]`, err)
+}
+
+func TestTextBasic(t *testing.T) {
+	assertErrText(t,
+		"prefix 2: text: suffix 1",
+		Appendf("suffix %d", 1).
+			Prependf("prefix %d", 2).
+			Args("arg1", 1, "arg2", 2). // there are no args in text
+			New("text"))
 }
 
 func assertErr(t *testing.T, expected string, actual error) {
 	assert.JSONEq(t, expected, jsonifyErr(actual))
+}
+
+func assertErrText(t *testing.T, expected string, actual error) {
+	assert.Equal(t, expected, actual.Error())
 }
 
 func func1test() error {

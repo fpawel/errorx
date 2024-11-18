@@ -150,9 +150,19 @@ func Prepend(s string) Builder {
 	return Builder{}.Prepend(s)
 }
 
-// Prependf the Error constructor with a prefix in the text
+// Prependf the Error constructor with a prefix in printf-like formatted text
 func Prependf(format string, args ...any) Builder {
 	return Builder{}.Prependf(format, args...)
+}
+
+// Append the Error constructor with a suffix in the text
+func Append(s string) Builder {
+	return Builder{}.Append(s)
+}
+
+// Appendf the Error constructor with a prefix in printf-like formatted text
+func Appendf(format string, args ...any) Builder {
+	return Builder{}.Appendf(format, args...)
 }
 
 // New create an Error with the specified message
@@ -202,6 +212,11 @@ func (o Builder) Append(append string) Builder {
 		o.append += ": " + append
 	}
 	return o
+}
+
+// Appendf version of Append with printf formatting
+func (o Builder) Appendf(format string, args ...any) Builder {
+	return o.Append(fmt.Sprintf(format, args...))
 }
 
 // Args structure arguments
