@@ -3,285 +3,126 @@ package errorx
 import (
 	"errors"
 	"fmt"
-	"github.com/elliotchance/pie/v2"
-	"log/slog"
-	"path/filepath"
-	"runtime"
+	"strings"
 )
 
-type (
-	// Error standard error wrapper with additional information
-	Error struct {
-		Frames []Frame
-		Err    error
-	}
-
-	Const string
-
-	// Frame additional information related to error
-	Frame struct {
-		Loc  string `json:"loc"`                          // Where the error was created in the code
-		Args M      `json:",omitempty" yaml:",omitempty"` // Structural arguments
-	}
-
-	// M alias for abbreviation
-	M = map[string]any
-
-	// Builder to simplify error constructors
-	Builder struct {
-		skip    int    // How many stack frames to skip when calculating where the error was created
-		prepend string // Text appended to the beginning of the error message, separated by ":"
-		append  string // Text appended to the end of the error message, separated by ":"
-		args    M      // Structural error arguments
-	}
-)
-
-func (s Const) Error() string {
-	return string(s)
+// ErrorBuilder накапливает контекст (префикс и аргументы),
+// который может быть добавлен к ошибке при вызове Wrap.
+type ErrorBuilder struct {
+	// Prefix добавляется перед ошибкой в итоговом сообщении.
+	Prefix string
+	// Args — пары ключ-значение, которые будут добавлены после префикса.
+	// Каждый ключ должен иметь соответствующее значение.
+	Args []any
 }
 
-// Attr attribute for error logging
-func Attr(err error) slog.Attr {
-	if e := Get(err); len(e.Frames) != 0 {
-		return slog.Group(err.Error(), e.AttrsAny()...)
-	}
-	return slog.String("error", err.Error())
+// NewBuilder создает новый ErrorBuilder с указанным сообщением-префиксом.
+func NewBuilder(msg string) ErrorBuilder {
+	return ErrorBuilder{}.WithPrefix(msg)
 }
 
-func (e Error) Value(arg string) any {
-	for _, f := range e.Frames {
-		v, ok := f.Args[arg]
-		if ok {
-			return v
-		}
-	}
-
-	var wrapped Error
-	if errors.As(e.Err, &wrapped) {
-		return wrapped.Value(arg)
-	}
-	return nil
+// Errorf создает ErrorBuilder с отформатированным сообщением-префиксом.
+func Errorf(format string, args ...any) ErrorBuilder {
+	return ErrorBuilder{}.WithPrefix(fmt.Sprintf(format, args...))
 }
 
-func (e Error) Error() string {
-	return e.Err.Error()
+// WithArgs создает ErrorBuilder с указанными парами "ключ-значение".
+// При вызове с нечётным числом аргументов пропущенные значения заменяются на "<missing>".
+// Ключи приводятся к строке с помощью fmt.Sprintf.
+func WithArgs(args ...any) ErrorBuilder {
+	return ErrorBuilder{}.WithArgs(args...)
 }
 
-// Details list of parent errors with arguments to log
-func (e Error) Details() []any {
-	xs := make([]any, 0, len(e.Frames))
-	for _, x := range e.Frames {
-		if len(x.Args) == 0 {
-			xs = append(xs, x.Loc)
-		} else {
-			xs = append(xs, M{x.Loc: x.Args})
-		}
-	}
-	return xs
+// New создает ошибку с указанным сообщением и оборачивает её с добавленным контекстом.
+//
+// Аналогично Wrap(errors.New(s)).
+func (b ErrorBuilder) New(s string) error {
+	return b.Wrap(errors.New(s))
 }
 
-func (e Error) AttrsAny() []any {
-	return pie.Map(e.Attrs(), func(a slog.Attr) any {
-		return a
-	})
+// Errorf создает ошибку с отформатированным сообщением и оборачивает её с добавленным контекстом.
+//
+// Аналогично Wrap(fmt.Errorf(...)).
+func (b ErrorBuilder) Errorf(format string, a ...any) error {
+	return b.Wrap(fmt.Errorf(format, a...))
 }
 
-func (e Error) Attrs() []slog.Attr {
-	xs := make([]slog.Attr, 0, len(e.Frames))
-	for _, x := range e.Frames {
-		if len(x.Args) == 0 {
-			xs = append(xs, slog.String(x.Loc, ""))
-		} else {
-			xs = append(xs, slog.Any(x.Loc, x.Args))
-		}
-	}
-	return xs
-}
-
-// Unwrap original error. Necessary for errors.Is and errors.As to work correctly
-func (e Error) Unwrap() error {
-	if v, ok := e.Err.(interface{ Unwrap() error }); ok {
-		return v.Unwrap()
-	}
-	return e.Err
-}
-
-// Get finds an object of type Error in the error tree of the original Err object and returns it (see errors.As).
-// Otherwise, Error is returned with default fields except Error.Err = Err,
-// that is, Error with the original error wrapped without any additional information.
-func Get(err error) Error {
-	var wrapped Error
-	if !errors.As(err, &wrapped) {
-		wrapped.Err = err
-	}
-	return wrapped
-}
-
-// Wrap wraps the original error in Error according to the additional error context passed in the opts constructor
-// The loc of the Wrap call is added to the additional error context
-func Wrap(err error) error {
-	return Skip(1).Wrap(err)
-}
-
-// New create an Error object with the text message
-// The loc of the New call is added to the additional error context
-func New(message string) error {
-	return Skip(1).New(message)
-}
-
-// Errorf create an Error object with printf-like formatted text
-// The loc of the Errorf call is added to the additional error context
-func Errorf(format string, args ...any) error {
-	return Skip(1).Errorf(format, args...)
-}
-
-// Skip the Error constructor, skipping stack frames loc
-func Skip(skip int) Builder {
-	return Builder{}.Skip(skip)
-}
-
-// Args Error constructor with structure arguments
-func Args(args ...any) Builder {
-	return Builder{}.Args(args...)
-}
-
-// Prepend the Error constructor with a prefix in the text
-func Prepend(s string) Builder {
-	return Builder{}.Prepend(s)
-}
-
-// Prependf the Error constructor with a prefix in printf-like formatted text
-func Prependf(format string, args ...any) Builder {
-	return Builder{}.Prependf(format, args...)
-}
-
-// Append the Error constructor with a suffix in the text
-func Append(s string) Builder {
-	return Builder{}.Append(s)
-}
-
-// Appendf the Error constructor with a prefix in printf-like formatted text
-func Appendf(format string, args ...any) Builder {
-	return Builder{}.Appendf(format, args...)
-}
-
-// New create an Error with the specified message
-func (o Builder) New(msg string) error {
-	return o.wrap(errors.New(msg))
-}
-
-// Errorf version of New with printf formatting
-func (o Builder) Errorf(format string, args ...any) error {
-	return o.wrap(fmt.Errorf(format, args...))
-}
-
-// Wrap constructor for wrapping the original error in Error.
-func (o Builder) Wrap(err error) error {
-	if err == nil {
-		return nil
-	}
-	return o.wrap(err)
-}
-
-// Skip adds skipping stack frames loc to the original error constructor
-func (o Builder) Skip(skip int) Builder {
-	o.skip = skip
-	return o
-}
-
-// Prepend adds a prefix to the error text
-func (o Builder) Prepend(prepend string) Builder {
-	if o.prepend == "" {
-		o.prepend = prepend
+// WithPrefix добавляет префикс к ErrorBuilder.
+// Повторные вызовы добавляют новый текст перед уже существующим через ": ".
+func (b ErrorBuilder) WithPrefix(s string) ErrorBuilder {
+	if b.Prefix == "" {
+		b.Prefix = s
 	} else {
-		o.prepend += ": " + prepend
+		b.Prefix = s + ": " + b.Prefix
 	}
-	return o
+	return b
 }
 
-// Prependf version of Prepend with printf formatting
-func (o Builder) Prependf(format string, args ...any) Builder {
-	return o.Prepend(fmt.Sprintf(format, args...))
-}
-
-// Append adds a suffix to the error text
-func (o Builder) Append(append string) Builder {
-	if o.append == "" {
-		o.append = append
-	} else {
-		o.append += ": " + append
-	}
-	return o
-}
-
-// Appendf version of Append with printf formatting
-func (o Builder) Appendf(format string, args ...any) Builder {
-	return o.Append(fmt.Sprintf(format, args...))
-}
-
-// Args structure arguments
-func (o Builder) Args(args ...any) Builder {
-	if o.args == nil {
-		o.args = M{}
-	}
+// WithArgs добавляет пары "ключ-значение" в ErrorBuilder.
+// Ключи приводятся к строке через fmt.Sprintf.
+// При нечётном количестве аргументов — последнее значение будет заменено на "<missing>".
+func (b ErrorBuilder) WithArgs(args ...any) ErrorBuilder {
 	for i := 0; i < len(args); i += 2 {
-		k := args[i]
-		var v any = "?"
+		k := fmt.Sprintf("%v", args[i])
+		var v any = "<missing>"
 		if i+1 < len(args) {
 			v = args[i+1]
 		}
-		o.args[k.(string)] = v
+		b.Args = append(b.Args, k, v)
 	}
-	return o
+	return b
 }
 
-func (o Builder) wrap(err error) Error {
-	d := Frame{
-		Loc:  loc(2 + o.skip),
-		Args: o.args,
+// Wrap оборачивает переданную ошибку с добавленным префиксом и аргументами.
+//
+// Поведение:
+//   - Если err == nil, метод немедленно возвращает nil и ничего не делает;
+//   - Если задан Prefix, он добавляется перед ошибкой через ": ";
+//   - Если заданы аргументы, они добавляются в фигурных скобках после префикса,
+//     ключ=значение разделены запятыми;
+//   - Финальный формат: "<Prefix>: {key1=val1, key2=val2}: оригинальная ошибка".
+//
+// Пример:
+//
+//	err := NewBuilder("context").WithArgs("user", 42).Wrap(someErr)
+//	// context: {user=42}: someErr
+func (b ErrorBuilder) Wrap(err error) error {
+	if err == nil {
+		return nil
 	}
 
-	var wrapped Error
-	errors.As(err, &wrapped)
+	var sb strings.Builder
 
-	if o.prepend != "" {
-		if err.Error() == "" {
-			err = fmt.Errorf("%s%w", o.prepend, err)
-		} else {
-			err = fmt.Errorf("%s: %w", o.prepend, err)
+	if b.Prefix != "" {
+		sb.WriteString(b.Prefix)
+	}
+
+	if len(b.Args) > 0 {
+		if sb.Len() > 0 {
+			sb.WriteString(": ")
 		}
-	}
-
-	if o.append != "" {
-		if err.Error() == "" {
-			err = fmt.Errorf("%w%s", err, o.append)
-		} else {
-			err = fmt.Errorf("%w: %s", err, o.append)
-		}
-	}
-
-	wrapped.Frames = append(wrapped.Frames, d)
-	wrapped.Err = err
-	return wrapped
-}
-
-func loc(skip int) string {
-	return formatFrame(skip+3, func(frame runtime.Frame) string {
-		function := filepath.Base(frame.Function)
-		for i, ch := range function {
-			if string(ch) == "." {
-				function = function[i:]
-				break
+		sb.WriteString("{")
+		for i := 0; i < len(b.Args); i += 2 {
+			if i > 0 {
+				sb.WriteString(", ")
 			}
+			k := fmt.Sprintf("%v", b.Args[i])
+			sb.WriteString(keyValueFormat(k, b.Args[i+1]))
 		}
-		return fmt.Sprintf("%s:%d%s", filepath.Base(frame.File), frame.Line, function)
-	})
+		sb.WriteString("}")
+	}
+
+	if sb.Len() > 0 {
+		return fmt.Errorf("%s: %w", sb.String(), err)
+	}
+	return err
 }
 
-func formatFrame(skip int, f func(frame runtime.Frame) string) string {
-	pc := make([]uintptr, 15)
-	n := runtime.Callers(skip, pc)
-	frames := runtime.CallersFrames(pc[:n])
-	frame, _ := frames.Next()
-	return f(frame)
+// keyValueFormat форматирует пару ключ=значение как строку.
+// Если значение — пустая строка, оно заменяется на ”.
+func keyValueFormat(k string, v any) string {
+	if s, ok := v.(string); ok && s == "" {
+		v = "''"
+	}
+	return fmt.Sprintf("%s=%v", k, v)
 }
