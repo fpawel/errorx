@@ -73,6 +73,16 @@ func (b ErrorBuilder) WithArgs(args ...any) ErrorBuilder {
 	return b
 }
 
+// ExtendPrefix adds a suffix to the current prefix, forming a longer context chain.
+func (b ErrorBuilder) ExtendPrefix(suffix string) ErrorBuilder {
+	if b.Prefix == "" {
+		b.Prefix = suffix
+	} else {
+		b.Prefix += ": " + suffix
+	}
+	return b
+}
+
 // Wrap оборачивает переданную ошибку с добавленным префиксом и аргументами.
 //
 // Поведение:
