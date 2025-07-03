@@ -2,10 +2,23 @@ package errorx
 
 import (
 	"errors"
+	"github.com/stretchr/testify/require"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestErrorBuilder_WithFunction(t *testing.T) {
+	require.Equal(t,
+		"init: github.com/fpawel/errorx.TestErrorBuilder_WithFunction: error",
+		NewBuilder("init").WithFunction().New("error").Error())
+}
+
+func TestErrorBuilder_WithFileLine(t *testing.T) {
+	require.Equal(t,
+		"init: errorx_test.go:20: error",
+		NewBuilder("init").WithFileLine().New("error").Error())
+}
 
 func TestErrorBuilder_WrapVariants(t *testing.T) {
 	tests := []struct {

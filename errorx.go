@@ -3,6 +3,7 @@ package errorx
 import (
 	"errors"
 	"fmt"
+	"github.com/fpawel/errorx/traceutils"
 	"strings"
 )
 
@@ -126,6 +127,16 @@ func (b ErrorBuilder) Wrap(err error) error {
 		return fmt.Errorf("%s: %w", sb.String(), err)
 	}
 	return err
+}
+
+func (b ErrorBuilder) WithFileLine() ErrorBuilder {
+	b.Prefix += ": " + traceutils.FileLine(1)
+	return b
+}
+
+func (b ErrorBuilder) WithFunction() ErrorBuilder {
+	b.Prefix += ": " + traceutils.Function(1)
+	return b
 }
 
 // keyValueFormat форматирует пару ключ=значение как строку.
