@@ -22,6 +22,10 @@ func NewBuilder(msg string) ErrorBuilder {
 	return ErrorBuilder{}.WithPrefix(msg)
 }
 
+func NewBuilderWithFunction() ErrorBuilder {
+	return NewBuilder(traceutils.Function(1))
+}
+
 // Errorf создает ErrorBuilder с отформатированным сообщением-префиксом.
 func Errorf(format string, args ...any) ErrorBuilder {
 	return ErrorBuilder{}.WithPrefix(fmt.Sprintf(format, args...))
@@ -130,12 +134,18 @@ func (b ErrorBuilder) Wrap(err error) error {
 }
 
 func (b ErrorBuilder) WithFileLine() ErrorBuilder {
-	b.Prefix += ": " + traceutils.FileLine(1)
+	if b.Prefix != "" {
+		b.Prefix += ": "
+	}
+	b.Prefix += traceutils.FileLine(1)
 	return b
 }
 
 func (b ErrorBuilder) WithFunction() ErrorBuilder {
-	b.Prefix += ": " + traceutils.Function(1)
+	if b.Prefix != "" {
+		b.Prefix += ": "
+	}
+	b.Prefix += traceutils.Function(1)
 	return b
 }
 

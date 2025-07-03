@@ -20,6 +20,12 @@ func TestErrorBuilder_WithFileLine(t *testing.T) {
 		NewBuilder("init").WithFileLine().New("error").Error())
 }
 
+func TestErrorBuilder_BuilderWithFunction(t *testing.T) {
+	require.Equal(t,
+		"github.com/fpawel/errorx.TestErrorBuilder_BuilderWithFunction: errorx_test.go:26: error",
+		NewBuilderWithFunction().WithFileLine().New("error").Error())
+}
+
 func TestErrorBuilder_WrapVariants(t *testing.T) {
 	tests := []struct {
 		name     string
