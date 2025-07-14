@@ -32,6 +32,16 @@ func TestErrorBuilder_BuilderWithFileLine(t *testing.T) {
 		WithFileLine().New("error").Error())
 }
 
+func TestErrorBuilder_BuilderWithShortFunction(t *testing.T) {
+	require.Equal(t,
+		"errorx.TestErrorBuilder_BuilderWithShortFunction: error",
+		WithShortFunction().New("error").Error())
+
+	require.Equal(t,
+		"errorx.TestErrorBuilder_BuilderWithShortFunction: error",
+		NewBuilder("").WithShortFunction().Wrap(errors.New("error")).Error())
+}
+
 func TestErrorBuilder_WrapVariants(t *testing.T) {
 	tests := []struct {
 		name     string

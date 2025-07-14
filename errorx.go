@@ -26,6 +26,10 @@ func WithFunction() ErrorBuilder {
 	return NewBuilder(traceutils.Function(1))
 }
 
+func WithShortFunction() ErrorBuilder {
+	return NewBuilder(traceutils.ShortFunction(1))
+}
+
 func WithFileLine() ErrorBuilder {
 	return NewBuilder(traceutils.FileLine(1))
 }
@@ -150,6 +154,14 @@ func (b ErrorBuilder) WithFunction() ErrorBuilder {
 		b.Prefix += ": "
 	}
 	b.Prefix += traceutils.Function(1)
+	return b
+}
+
+func (b ErrorBuilder) WithShortFunction() ErrorBuilder {
+	if b.Prefix != "" {
+		b.Prefix += ": "
+	}
+	b.Prefix += traceutils.ShortFunction(1)
 	return b
 }
 

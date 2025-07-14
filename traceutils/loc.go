@@ -45,6 +45,15 @@ func Function(skip int) string {
 	return frame.Function
 }
 
+func ShortFunction(skip int) string {
+	frame := Frame(skip + 1)
+	if frame.File == "" {
+		return "unknown"
+	}
+
+	return filepath.Base(frame.Function)
+}
+
 // Frame возвращает структуру runtime.Frame с информацией о месте вызова,
 // с учетом указанного смещения skip.
 //
