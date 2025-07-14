@@ -22,8 +22,12 @@ func NewBuilder(msg string) ErrorBuilder {
 	return ErrorBuilder{}.WithPrefix(msg)
 }
 
-func NewBuilderWithFunction() ErrorBuilder {
+func WithFunction() ErrorBuilder {
 	return NewBuilder(traceutils.Function(1))
+}
+
+func WithFileLine() ErrorBuilder {
+	return NewBuilder(traceutils.FileLine(1))
 }
 
 // Errorf создает ErrorBuilder с отформатированным сообщением-префиксом.

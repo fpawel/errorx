@@ -22,8 +22,14 @@ func TestErrorBuilder_WithFileLine(t *testing.T) {
 
 func TestErrorBuilder_BuilderWithFunction(t *testing.T) {
 	require.Equal(t,
-		"github.com/fpawel/errorx.TestErrorBuilder_BuilderWithFunction: errorx_test.go:26: error",
-		NewBuilderWithFunction().WithFileLine().New("error").Error())
+		"github.com/fpawel/errorx.TestErrorBuilder_BuilderWithFunction: error",
+		WithFunction().New("error").Error())
+}
+
+func TestErrorBuilder_BuilderWithFileLine(t *testing.T) {
+	require.Equal(t,
+		"errorx_test.go:32: error",
+		WithFileLine().New("error").Error())
 }
 
 func TestErrorBuilder_WrapVariants(t *testing.T) {
