@@ -58,7 +58,8 @@ func Function(skip int) string {
 //     возвращается строка "unknown".
 //
 // Пример:
-//   fmt.Println(ShortFunction(1)) // Выведет название функции, которая вызвала ShortFunction.
+//
+//	fmt.Println(ShortFunction(1)) // Выведет название функции, которая вызвала ShortFunction.
 func ShortFunction(skip int) string {
 	frame := Frame(skip + 1)
 	if frame.File == "" {

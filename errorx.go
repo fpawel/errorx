@@ -22,14 +22,17 @@ func NewBuilder(msg string) ErrorBuilder {
 	return ErrorBuilder{}.WithPrefix(msg)
 }
 
+// WithFunction создает новый ErrorBuilder с полным именем функции (включая путь пакета).
 func WithFunction() ErrorBuilder {
 	return NewBuilder(traceutils.Function(1))
 }
 
+// WithShortFunction создает новый ErrorBuilder с именем функции.
 func WithShortFunction() ErrorBuilder {
 	return NewBuilder(traceutils.ShortFunction(1))
 }
 
+// WithFileLine создает новый ErrorBuilder с именем файла и номером строки,
 func WithFileLine() ErrorBuilder {
 	return NewBuilder(traceutils.FileLine(1))
 }
